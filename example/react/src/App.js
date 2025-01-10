@@ -1,67 +1,45 @@
-import React, { Component, Suspense } from 'react';
-import { useTranslation, withTranslation, Trans } from 'react-i18next';
-import logo from './logo.svg';
 import './App.css';
+import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+import Navbar from './components/layout/Navbar';
+import Alerts from './components/layout/Alerts';
+import Home from './components/pages/Home';
+import About from './components/pages/About';
+import Register from './components/auth/Register';
+import Login from './components/auth/Login';
+import PrivateRoute from './components/routing/PrivateRoute';
 
-// use hoc for class based components
-class LegacyWelcomeClass extends Component {
-  render() {
-    const { t } = this.props;
-    return <h2>{t('title')}</h2>;
-  }
+import ContactState from './context/contact/ContactState';
+import AuthState from './context/auth/AuthState';
+import AlertState from './context/alert/AlertState';
+import setAuthToken from './utils/setAuthToken';
+
+if (localStorage.token) {
+  setAuthToken(localStorage.token);
 }
-const Welcome = withTranslation()(LegacyWelcomeClass);
 
-// Component using the Trans component
-function MyComponent() {
+const App = () => {
   return (
-    <Trans i18nKey="description.part1">
-      To get started, edit <code>src/App.js</code> and save to reload.
-    </Trans>
+    <AuthState>
+      <ContactState>
+        <AlertState>
+          <Router>
+            <>
+              <Navbar />
+              <div className="container">
+                <Alerts />
+                <Switch>
+                  <PrivateRoute exact path="/" component={Home} />
+                  <Route exact path="/about" component={About} />
+                  <Route exact path="/register" component={Register} />
+                  <Route exact path="/login" component={Login} />
+                </Switch>
+              </div>
+            </>
+          </Router>
+        </AlertState>
+      </ContactState>
+    </AuthState>
   );
-}
+};
 
-// page uses the hook
-function Page() {
-  const { t, i18n } = useTranslation();
-
-  const changeLanguage = (lng) => {
-    i18n.changeLanguage(lng);
-  };
-
-  return (
-    <div className="App">
-      <div className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <Welcome />
-        <button type="button" onClick={() => changeLanguage('de')}>
-          de
-        </button>
-        <button type="button" onClick={() => changeLanguage('en')}>
-          en
-        </button>
-      </div>
-      <div className="App-intro">
-        <MyComponent />
-      </div>
-      <div>{t('description.part2')}</div>
-    </div>
-  );
-}
-
-// loading component for suspense fallback
-const Loader = () => (
-  <div className="App">
-    <img src={logo} className="App-logo" alt="logo" />
-    <div>loading...</div>
-  </div>
-);
-
-// here app catches the suspense from page in case translations are not yet loaded
-export default function App() {
-  return (
-    <Suspense fallback={<Loader />}>
-      <Page />
-    </Suspense>
-  );
-}
+export default App;

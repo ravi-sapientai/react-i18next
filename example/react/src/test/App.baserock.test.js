@@ -1,101 +1,110 @@
-const React = require('react');
-const ReactDOM = require('react-dom/client');
-const { act } = require('@testing-library/react');
-const i18next = require('i18next');
-const { I18nextProvider } = require('react-i18next');
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import App from '../../src/App';
 
-// Mock the react-i18next module
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: jest.fn(key => key),
-    i18n: {
-      changeLanguage: jest.fn(),
-    },
-  }),
-  withTranslation: () => Component => props => <Component t={key => key} {...props} />,
-  Trans: ({ children }) => children,
-  I18nextProvider: ({ children }) => children,
-}));
-
-// Mock the logo import
-jest.mock('../../src/logo.svg', () => 'mocked-logo.svg');
-
-// Mock the CSS import
-jest.mock('../../src/App.css', () => ({}));
-
-// Mock the App component
-const MockedApp = () => <div data-testid="mock-app">Mocked App Component</div>;
-jest.mock('../../src/App', () => ({
-  __esModule: true,
-  default: MockedApp,
-}));
-
-const App = require('../../src/App').default;
+// Mock the components and contexts
+jest.mock('../../src/components/layout/Navbar', () => () => <div data-testid="navbar">Navbar</div>);
+jest.mock('../../src/components/layout/Alerts', () => () => <div data-testid="alerts">Alerts</div>);
+jest.mock('../../src/components/pages/Home', () => () => <div data-testid="home">Home</div>);
+jest.mock('../../src/components/pages/About', () => () => <div data-testid="about">About</div>);
+jest.mock('../../src/components/auth/Register', () => () => <div data-testid="register">Register</div>);
+jest.mock('../../src/components/auth/Login', () => () => <div data-testid="login">Login</div>);
+jest.mock('../../src/components/routing/PrivateRoute', () => ({ children }) => children);
+jest.mock('../../src/context/contact/ContactState', () => ({ children }) => <div data-testid="contact-state">{children}</div>);
+jest.mock('../../src/context/auth/AuthState', () => ({ children }) => <div data-testid="auth-state">{children}</div>);
+jest.mock('../../src/context/alert/AlertState', () => ({ children }) => <div data-testid="alert-state">{children}</div>);
+jest.mock('../../src/utils/setAuthToken');
 
 describe('App Component', () => {
-  let container;
-  let root;
+  let originalLocalStorage;
 
   beforeEach(() => {
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    root = ReactDOM.createRoot(container);
+    jest.clearAllMocks();
+    originalLocalStorage = global.localStorage;
+    global.localStorage = {
+      getItem: jest.fn(),
+    };
   });
 
   afterEach(() => {
-    act(() => {
-      root.unmount();
-    });
-    document.body.removeChild(container);
-    container = null;
+    global.localStorage = originalLocalStorage;
   });
-
-  const renderApp = () => {
-    act(() => {
-      root.render(
-        <I18nextProvider i18n={i18next}>
-          <App />
-        </I18nextProvider>
-      );
-    });
-  };
 
   it('renders without crashing', () => {
-    renderApp();
-    expect(container.textContent).toBeTruthy();
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('auth-state')).toBeInTheDocument();
+    expect(screen.getByTestId('contact-state')).toBeInTheDocument();
+    expect(screen.getByTestId('alert-state')).toBeInTheDocument();
+    expect(screen.getByTestId('navbar')).toBeInTheDocument();
+    expect(screen.getByTestId('alerts')).toBeInTheDocument();
   });
 
-  it('renders the mocked App component', () => {
-    renderApp();
-    expect(container.querySelector('[data-testid="mock-app"]')).toBeTruthy();
+  it('renders Home component for root path', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('home')).toBeInTheDocument();
   });
 
-  it('uses the mocked translation function', () => {
-    const { useTranslation } = require('react-i18next');
-    const { t } = useTranslation();
-    expect(t('test')).toBe('test');
+  it('renders About component for /about path', () => {
+    render(
+      <MemoryRouter initialEntries={['/about']}>
+        <App />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('about')).toBeInTheDocument();
   });
 
-  it('uses the mocked Trans component', () => {
-    const { Trans } = require('react-i18next');
-    const wrapper = document.createElement('div');
-    act(() => {
-      ReactDOM.createRoot(wrapper).render(
-        <Trans i18nKey="description.part1">
-          Test content
-        </Trans>
-      );
-    });
-    expect(wrapper.textContent).toBe('Test content');
+  it('renders Register component for /register path', () => {
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <App />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('register')).toBeInTheDocument();
   });
 
-  it('uses the mocked withTranslation HOC', () => {
-    const { withTranslation } = require('react-i18next');
-    const TestComponent = withTranslation()(() => <div>Test</div>);
-    const wrapper = document.createElement('div');
-    act(() => {
-      ReactDOM.createRoot(wrapper).render(<TestComponent />);
-    });
-    expect(wrapper.textContent).toBe('Test');
+  it('renders Login component for /login path', () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <App />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('login')).toBeInTheDocument();
+  });
+
+  it('calls setAuthToken if localStorage.token exists', () => {
+    const setAuthToken = require('../../src/utils/setAuthToken');
+    const token = 'test-token';
+    global.localStorage.getItem.mockReturnValue(token);
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(setAuthToken).toHaveBeenCalledWith(token);
+  });
+
+  it('does not call setAuthToken if localStorage.token does not exist', () => {
+    const setAuthToken = require('../../src/utils/setAuthToken');
+    global.localStorage.getItem.mockReturnValue(null);
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(setAuthToken).not.toHaveBeenCalled();
   });
 });
